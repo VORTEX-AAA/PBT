@@ -1,57 +1,73 @@
 import csv
+import time
 from datetime import datetime
 from pathlib import Path
 
 DATA_FILE = "data/forex_usdinr.csv"
 OUTPUT_FILE = "data/forex_usdinr.svg"
 
-rows = []
+WIDTH, HEIGHT = 1000, 500
+LEFT, RIGHT, TOP, BOTTOM = 70, 30, 40, 60
 
-with open(DATA_FILE, newline="") as file:
-    for row in csv.DictReader(file):
-        rows.append((datetime.fromisoformat(row["timestamp"]), float(row["usd_inr"])))
 
-if len(rows) < 2:
-    raise SystemExit("Need at least 2 observations. Run forex_history.py first.")
+def generate_chart():
+    rows = []
 
-width, height = 1000, 500
-left, right, top, bottom = 70, 30, 40, 60
-plot_w = width - left - right
-plot_h = height - top - bottom
+    with open(DATA_FILE, newline="") as file:
+        for row in csv.DictReader(file):
+            rows.append(
+                (datetime.fromisoformat(row["timestamp"]), float(row["usd_inr"]))
+            )
 
-values = [value for _, value in rows]
-vmin, vmax = min(values), max(values)
+    if len(rows) < 2:
+        print("Need at least 2 observations. Waiting for more data...")
+        return
 
-if vmin == vmax:
-    vmin -= 0.01
-    vmax += 0.01
+    plot_w = WIDTH - LEFT - RIGHT
+    plot_h = HEIGHT - TOP - BOTTOM
 
-def x_position(index):
-    return left + (index / (len(rows) - 1)) * plot_w
+    values = [value for _, value in rows]
+    vmin, vmax = min(values), max(values)
 
-def y_position(value):
-    return top + (vmax - value) / (vmax - vmin) * plot_h
+    if vmin == vmax:
+        vmin -= 0.01
+        vmax += 0.01
 
-points = " ".join(
-    f"{x_position(i):.1f},{y_position(value):.1f}"
-    for i, (_, value) in enumerate(rows)
-)
+    def x_position(index):
+        return LEFT + (index / (len(rows) - 1)) * plot_w
 
-latest_time, latest_value = rows[-1]
+    def y_position(value):
+        return TOP + (vmax - value) / (vmax - vmin) * plot_h
 
-svg = f"""<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}">
+    points = " ".join(
+        f"{x_position(i):.1f},{y_position(value):.1f}"
+        for i, (_, value) in enumerate(rows)
+    )
+
+    latest_time, latest_value = rows[-1]
+
+    svg = f"""<svg xmlns="http://www.w3.org/2000/svg" width="{WIDTH}" height="{HEIGHT}" viewBox="0 0 {WIDTH} {HEIGHT}">
 <rect width="100%" height="100%" fill="white"/>
-<text x="{left}" y="25" font-family="sans-serif" font-size="20">USD/INR — Historical Data</text>
-<line x1="{left}" y1="{top}" x2="{left}" y2="{height-bottom}" stroke="black"/>
-<line x1="{left}" y1="{height-bottom}" x2="{width-right}" y2="{height-bottom}" stroke="black"/>
+<text x="{LEFT}" y="25" font-family="sans-serif" font-size="20">USD/INR — Live Historical Data</text>
+<line x1="{LEFT}" y1="{TOP}" x2="{LEFT}" y2="{HEIGHT-BOTTOM}" stroke="black"/>
+<line x1="{LEFT}" y1="{HEIGHT-BOTTOM}" x2="{WIDTH-RIGHT}" y2="{HEIGHT-BOTTOM}" stroke="black"/>
 <polyline points="{points}" fill="none" stroke="steelblue" stroke-width="2"/>
-<text x="{left}" y="{height-20}" font-family="sans-serif" font-size="12">{rows[0][0].strftime('%H:%M:%S')}</text>
-<text x="{width-right-70}" y="{height-20}" font-family="sans-serif" font-size="12">{latest_time.strftime('%H:%M:%S')}</text>
-<text x="10" y="{top+5}" font-family="sans-serif" font-size="12">{vmax:.4f}</text>
-<text x="10" y="{height-bottom}" font-family="sans-serif" font-size="12">{vmin:.4f}</text>
-<text x="{left}" y="{height-5}" font-family="sans-serif" font-size="12">Latest: ₹{latest_value:.4f}</text>
+<text x="{LEFT}" y="{HEIGHT-20}" font-family="sans-serif" font-size="12">{rows[0][0].strftime('%H:%M:%S')}</text>
+<text x="{WIDTH-RIGHT-70}" y="{HEIGHT-20}" font-family="sans-serif" font-size="12">{latest_time.strftime('%H:%M:%S')}</text>
+<text x="10" y="{TOP+5}" font-family="sans-serif" font-size="12">{vmax:.4f}</text>
+<text x="10" y="{HEIGHT-BOTTOM}" font-family="sans-serif" font-size="12">{vmin:.4f}</text>
+<text x="{LEFT}" y="{HEIGHT-5}" font-family="sans-serif" font-size="12">Latest: ₹{latest_value:.4f} | Points: {len(rows)}</text>
 </svg>
 """
 
-Path(OUTPUT_FILE).write_text(svg, encoding="utf-8")
-print(f"Saved chart to {OUTPUT_FILE}")
+    Path(OUTPUT_FILE).write_text(svg, encoding="utf-8")
+    print(f"Chart updated | {latest_time.strftime('%H:%M:%S')} | Points: {len(rows)}")
+
+
+while True:
+    try:
+        generate_chart()
+    except Exception as error:
+        print("Chart error:", error)
+
+    time.sleep(10)
