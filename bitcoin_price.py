@@ -5,17 +5,22 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 CSV_FILE = Path("bitcoin_usd_live.csv")
-INTERVAL = 10  # seconds
+INTERVAL = 30  # seconds
 
 
 def get_bitcoin_price():
-    url = "https://api.coindesk.com/v1/bpi/currentprice/USD.json"
+    url = "https://api.coingecko.com/api/v3/simple/price"
 
-    response = requests.get(url, timeout=10)
+    params = {
+        "ids": "bitcoin",
+        "vs_currencies": "usd"
+    }
+
+    response = requests.get(url, params=params, timeout=10)
     response.raise_for_status()
 
     data = response.json()
-    return float(data["bpi"]["USD"]["rate"].replace(",", ""))
+    return float(data["bitcoin"]["usd"])
 
 
 def save_price(timestamp, price):
@@ -30,9 +35,11 @@ def save_price(timestamp, price):
         writer.writerow([timestamp, price])
 
 
-print("Bitcoin live price collector started.")
-print(f"Saving to: {CSV_FILE.resolve()}")
+print("Bitcoin BTC/USD live collector started.")
+print(f"Saving data to: {CSV_FILE.resolve()}")
+print("Interval: 30 seconds")
 print("Press Ctrl+C to stop.\n")
+
 
 while True:
     try:
@@ -43,10 +50,10 @@ while True:
 
         print(f"{timestamp} | BTC/USD = ${price:,.2f}")
 
-    except requests.RequestException as e:
-        print(f"API error: {e}")
+    except requests.RequestException as error:
+        print(f"API error: {error}")
 
-    except Exception as e:
-        print(f"Error: {e}")
+    except Exception as error:
+        print(f"Error: {error}")
 
     time.sleep(INTERVAL)
